@@ -1,5 +1,5 @@
 lazy val commonSettings = Seq(
-  version := "0.28.0",
+  version := "0.27.0",
   organization := "com.tethys-json",
   scalaVersion := "3.2.0",
   crossScalaVersions := Seq("2.13.8", "3.2.0"),
@@ -57,8 +57,8 @@ lazy val commonSettings = Seq(
 
 lazy val testSettings = Seq(
   libraryDependencies ++=  Seq(
-    "org.scalatest" %% "scalatest-flatspec"       % "3.2.11" % Test,
-    "org.scalatest" %% "scalatest-shouldmatchers" % "3.2.11" % Test
+    "org.scalatest" %% "scalatest-flatspec"       % "3.2.12" % Test,
+    "org.scalatest" %% "scalatest-shouldmatchers" % "3.2.12" % Test
   )
 )
 
@@ -67,7 +67,7 @@ lazy val tethys = project.in(file("."))
     publishTo := None,
     commonSettings
   )
-  .aggregate(core, `macro-derivation`, `jackson-211`, `jackson-212`, `jackson-213`, json4s, circe, refined)
+  .aggregate(core, `macro-derivation`, `jackson-211`, `jackson-212`, `jackson-213`, json4s, circe, refined, enumeratum)
 
 lazy val modules = file("modules")
 
@@ -101,10 +101,6 @@ lazy val `macro-derivation` = project.in(modules / "macro-derivation")
         case _ => Seq.empty
       }
     }
-//    ,
-//    ThisBuild / scalacOptions += "-explain"
-//    ,
-//    ThisBuild / scalacOptions += "-Xprint:inline"
   )
   .dependsOn(core)
 
@@ -145,7 +141,7 @@ lazy val `jackson-213` = project.in(modules / "jackson-213")
   .settings(
     name := "tethys-jackson213",
     libraryDependencies ++= Seq(
-      "com.fasterxml.jackson.core" % "jackson-core" % "2.13.2"
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.13.3"
     )
   )
   .dependsOn(core)
@@ -175,13 +171,16 @@ lazy val json4s = project.in(modules / "json4s")
 lazy val enumeratum = project.in(modules / "enumeratum")
   .settings(commonSettings)
   .settings(testSettings)
-  .settings(scalaVersion := "2.13.8")
   .settings(crossScalaVersions := Seq("2.13.8"))
   .settings(
     name := "tethys-enumeratum",
-    libraryDependencies ++= Seq(
-      "com.beachape" %% "enumeratum" % "1.7.0"
-    )
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, y)) if y >= 13 =>
+          Seq("com.beachape" %% "enumeratum" % "1.7.0")
+        case _ => Seq.empty
+      }
+    }
   )
   .dependsOn(core)
 
