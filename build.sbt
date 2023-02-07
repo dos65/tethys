@@ -1,5 +1,5 @@
 lazy val scala213 = "2.13.10"
-lazy val scala32 = "3.2.1"
+lazy val scala32 = "3.3.1-RC1-bin-20230204-a356581-NIGHTLY"
 
 ThisBuild / scalaVersion := scala32
 //ThisBuild / scalaVersion := scala213
@@ -117,6 +117,18 @@ lazy val `macro-derivation` = project.in(modules / "macro-derivation")
     )
   )
   .dependsOn(core)
+
+lazy val `macro-derivation-sample` = project.in(modules / "macro-derivation-sample")
+  .settings(crossScalaSettings)
+  .settings(commonSettings)
+  .settings(testSettings)
+  // .settings(
+  //   name := "tethys-derivation",
+  //   libraryDependencies ++= addScalaCompiler(scalaVersion.value) ++ Seq(
+  //     "io.bullet" %% "macrolizer" % "0.6.2" % "compile-internal, test-internal"
+  //   )
+  // )
+  .dependsOn(`macro-derivation`)
 
 lazy val jacksonSettings = Seq(
   Compile / unmanagedSourceDirectories += modules / "jackson-backend" / "src" / "main",

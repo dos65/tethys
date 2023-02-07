@@ -19,10 +19,108 @@ trait WriterDerivation extends WriterBuilderCommons {
   ): Expr[JsonObjectWriter[T]] = {
     val (fieldStyle, _) = evalWriterConfig(description.config)
 
+    val tpe = TypeRepr.of[T]
+    val requiredTypes = tpe.typeSymbol.caseFields.map(sym => tpe.memberType(sym))
+    println("!!!!!!!!!!!")
+    println(requiredTypes.map(_.show))
+    println("!!!!!!!!!!!")
+
+    val parents   = List(TypeTree.of[Object], TypeTree.of[JsonWriter[T]])
+    val cls = Symbol.newClass(
+      Symbol.spliceOwner,
+      "asdasda",
+      parents.map(_.tpe),
+      (decl: Symbol) => {
+        println(s"AAAAA")
+        println(decl.fullName)
+        println(s"AAAAA")
+        List.empty
+      },
+      None
+    )
+
+    val methodSym = Symbol.newMethod(
+      cls,
+      "sampleMethod",
+      MethodType(List("value", "tokenWriter"))(_ => List(TypeRepr.of[T], TypeRepr.of[TokenWriter]), _ => TypeRepr.of[Unit]),
+    )
+
+    val defDef = DefDef(methodSym, params => {
+      val value = params.head(0).asExprOf[T]
+      val tokenWriter = params.head(1).asExprOf[TokenWriter]
+      Some(
+        '{
+          val valueTerm = $value.asTerm
+          val tokenWriterTerm = $tokenWriter//.asTerm
+          val writerFields = applyFieldStyle(fieldStyle)
+            .andThen(applyDescriptionOperations(valueTerm, description.operations))
+            .apply(makeFields[T](valueTerm))
+
+          val writerInfos = allocateWriters(writerFields)
+
+          val fieldWriteTerms = writerFields.map {
+            case SimpleWriterField(_, jsonName, fieldTpe, extractor) =>
+              val valueTerm = extractor match {
+                case InlineExtract(term) =>
+                  term
+                case FunctionExtractor(arg, _, _, func) =>
+                  func.selectFirstMethod("apply").appliedTo(arg.term)
+              }
+
+              val writerTerm = writerInfos.find(_._1 =:= fieldTpe.widen).get._2
+              writerTerm.selectWrite3Method.appliedTo(jsonName.asTerm, valueTerm, tokenWriterTerm)
+
+            case PartialExtractedField(_, jsonName, argExtractor, cases) =>
+              val valueTerm = argExtractor match {
+                case InlineExtract(term) =>
+                  term
+                case FunctionExtractor(arg, _, _, func) =>
+                  func.selectFirstMethod("apply").appliedTo(arg.term)
+              }
+
+              val resultCases = cases.map { case CaseDef(p, g, rhs) =>
+                val writerTerm = writerInfos.find(_._1 =:= rhs.tpe.widen).get._2
+                CaseDef(p, g, writerTerm.selectWrite3Method.appliedTo(jsonName.asTerm, rhs, tokenWriterTerm))
+              }
+
+              Match(valueTerm, resultCases)
+          }
+
+          Block(fieldWriteTerms, '{ () }.asTerm).asExprOf[Unit]
+        }
+      )
+      }
+    )
+
+    val lazyValMembers =
+      requiredTypes.distinct.zipWithIndex.map{ (tpe, i) => 
+        val valSym = Symbol.newVal(
+          cls,
+          s"mem$i",
+          tpe,
+          Flags.Implicit | Flags.Lazy,
+          Symbol.noSymbol
+        )
+        ValDef(valSym, Some('{???}.asTerm))
+      }
+    val allStms = defDef :: lazyValMembers
+
+    val clsDef = ClassDef(cls, parents, body = allStms)
+    val newCls = Typed(Apply(Select(New(TypeIdent(cls)), cls.primaryConstructor), Nil), TypeTree.of[JsonWriter[T]])
+    val expr   = Block(List(clsDef), newCls).asExpr
+
+    println(expr.show)
+
+    //println(lazyValMembers.map(_.show).mkString("\n"))
+
+
+
     '{
       new JsonObjectWriter[T] {
         // FIXME
         private[this] implicit def thisWriter: JsonWriter[T] = this
+
+        //${Block(lazyValMembers)}
 
         override def writeValues(value: T, tokenWriter: TokenWriter): Unit = ${
           val valueTerm = 'value.asTerm
@@ -180,6 +278,95 @@ trait WriterDerivation extends WriterBuilderCommons {
       }
     }
   }
+
+  // private def applyDescriptionOperations2(
+  //     valueType: TypeRepr,
+  //     operations: Seq[WriterMacroOperation]
+  // ): List[WriterField] => List[WriterField] = writerFields => {
+  //   def mapField(fields: List[WriterField], name: String)(f: SimpleWriterField => WriterField): List[WriterField] = {
+  //     fields.map {
+  //       case field: SimpleWriterField if field.name == name => f(field)
+  //       case field                                          => field
+  //     }
+  //   }
+
+  //   operations.foldLeft(writerFields) { case (fields, operation) =>
+  //     operation match {
+  //       case WriterMacroOperation.Remove(_, field) =>
+  //         fields.filterNot(_.name == field)
+
+  //       case WriterMacroOperation.Update(_, field, name, fun, from, to) =>
+  //         mapField(fields, field)(f =>
+  //           SimpleWriterField(
+  //             name = field,
+  //             jsonName = name.getOrElse(f.jsonName),
+  //             tpe = to,
+  //             extractor = FunctionExtractor(
+  //               //arg = InlineExtract(valueTerm.selectField(field)),
+  //               arg = InlineExtract(valueType.typeSymbol.fieldMember(field)),
+  //               from = from,
+  //               to = to,
+  //               body = fun
+  //             )
+  //           )
+  //         )
+
+  //       case WriterMacroOperation.UpdateFromRoot(tpe, field, name, fun, to) =>
+  //         mapField(fields, field)(f =>
+  //           SimpleWriterField(
+  //             name = field,
+  //             jsonName = name.getOrElse(f.jsonName),
+  //             tpe = to,
+  //             extractor = FunctionExtractor(
+  //               arg = InlineExtract(valueTerm),
+  //               from = tpe,
+  //               to = to,
+  //               body = fun
+  //             )
+  //           )
+  //         )
+
+  //       case WriterMacroOperation.UpdatePartial(_, field, name, fun, _) =>
+  //         mapField(fields, field)(f =>
+  //           PartialExtractedField(
+  //             name = field,
+  //             jsonName = name.getOrElse(f.jsonName),
+  //             argExtractor = InlineExtract(valueTerm.selectField(field)),
+  //             cases = fun match {
+  //               case Lambda(_, Match(_, cases)) => cases
+  //             }
+  //           )
+  //         )
+
+  //       case WriterMacroOperation.UpdatePartialFromRoot(_, field, name, fun) =>
+  //         mapField(fields, field)(f =>
+  //           PartialExtractedField(
+  //             name = field,
+  //             jsonName = name.getOrElse(f.jsonName),
+  //             argExtractor = InlineExtract(valueTerm),
+  //             cases = fun match {
+  //               case Lambda(_, Match(_, cases)) => cases
+  //             }
+  //           )
+  //         )
+
+  //       case WriterMacroOperation.Add(tpe, field, fun, to) =>
+  //         fields ::: List(
+  //           SimpleWriterField(
+  //             name = "__---nope---__",
+  //             jsonName = field,
+  //             tpe = to,
+  //             extractor = FunctionExtractor(
+  //               arg = InlineExtract(valueTerm),
+  //               from = tpe,
+  //               to = to,
+  //               body = fun
+  //             )
+  //           )
+  //         )
+  //     }
+  //   }
+  // }
 
   private def makeFields[T: Type](valueTerm: Term): List[WriterField] = {
     val tpr = TypeRepr.of[T]
