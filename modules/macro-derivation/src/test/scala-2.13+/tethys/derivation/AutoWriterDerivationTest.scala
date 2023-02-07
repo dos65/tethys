@@ -75,11 +75,13 @@ class AutoWriterDerivationTest extends AnyFlatSpec with Matchers {
 
   it should "auto derive writer that normally concatenates with other JsonObjectWriter's" in {
     implicit def recursionTraitWithTypeWriter[B: JsonWriter]: JsonObjectWriter[ADTWithType[B]] = {
-      val simpleJsonObjectWriter = SimpleJsonObjectWriter[ADTWithType[B]].addField("clazz") {
-        case _: ADTWithTypeA[B] => "ADTWithTypeA"
-        case _: ADTWithTypeB[B] => "ADTWithTypeB"
-      }
-      simpleJsonObjectWriter ++ jsonWriter[ADTWithType[B]]
+//      macrolizer.show {
+        val simpleJsonObjectWriter = SimpleJsonObjectWriter[ADTWithType[B]].addField("clazz") {
+          case _: ADTWithTypeA[B] => "ADTWithTypeA"
+          case _: ADTWithTypeB[B] => "ADTWithTypeB"
+        }
+        simpleJsonObjectWriter ++ jsonWriter[ADTWithType[B]]
+//      }
     }
 
     (ADTWithTypeB[Int](1, ADTWithTypeA[Int](2)): ADTWithType[Int]).asTokenList shouldBe obj(

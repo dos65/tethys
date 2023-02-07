@@ -2,6 +2,7 @@ lazy val scala213 = "2.13.10"
 lazy val scala32 = "3.2.1"
 
 ThisBuild / scalaVersion := scala32
+//ThisBuild / scalaVersion := scala213
 
 lazy val commonSettings = Seq(
   version := "0.27.0",
@@ -62,7 +63,9 @@ def crossScalaSettings = {
     }
 
   Seq(
-    crossScalaVersions := Seq(scala213, scala32),
+    //    crossScalaVersions := Seq(scala213, scala32),
+    crossScalaVersions := Seq(scala32),
+//    crossScalaVersions := Seq(scala213),
     Compile / unmanagedSourceDirectories ++= addDirsByScalaVersion("src/main").value,
     Test / unmanagedSourceDirectories ++= addDirsByScalaVersion("src/test").value
   )
@@ -109,7 +112,9 @@ lazy val `macro-derivation` = project.in(modules / "macro-derivation")
   .settings(testSettings)
   .settings(
     name := "tethys-derivation",
-    libraryDependencies ++= addScalaCompiler(scalaVersion.value)
+    libraryDependencies ++= addScalaCompiler(scalaVersion.value) ++ Seq(
+      "io.bullet" %% "macrolizer" % "0.6.2" % "compile-internal, test-internal"
+    )
   )
   .dependsOn(core)
 

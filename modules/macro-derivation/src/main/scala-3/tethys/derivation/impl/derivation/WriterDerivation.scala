@@ -21,8 +21,8 @@ trait WriterDerivation extends WriterBuilderCommons {
 
     '{
       new JsonObjectWriter[T] {
-        private[this] implicit def thisWriter: JsonWriter[T] =
-          $searchWriterWithSameType.getOrElse(this)
+        // FIXME
+        private[this] implicit def thisWriter: JsonWriter[T] = this
 
         override def writeValues(value: T, tokenWriter: TokenWriter): Unit = ${
           val valueTerm = 'value.asTerm
@@ -206,8 +206,8 @@ trait WriterDerivation extends WriterBuilderCommons {
 
     '{
       new JsonObjectWriter[T] { self =>
-        private[this] implicit def thisWriter: JsonWriter[T] =
-          $searchWriterWithSameType.getOrElse(this)
+        // FIXME
+        private[this] implicit def thisWriter: JsonWriter[T] = this
 
         override def write(value: T, tokenWriter: TokenWriter): Unit = ${
           val cases = children.map {

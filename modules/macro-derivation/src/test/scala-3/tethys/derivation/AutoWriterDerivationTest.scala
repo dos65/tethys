@@ -75,11 +75,13 @@ class AutoWriterDerivationTest extends AnyFlatSpec with Matchers {
 
   it should "auto derive writer that normally concatenates with other JsonObjectWriter's" in {
     implicit def recursionTraitWithTypeWriter[B: JsonWriter]: JsonObjectWriter[ADTWithType[B]] = {
-      val simpleJsonObjectWriter = SimpleJsonObjectWriter[ADTWithType[B]].addField("clazz") {
-        case _: ADTWithTypeA[B] => "ADTWithTypeA"
-        case _: ADTWithTypeB[B] => "ADTWithTypeB"
-      }
-      simpleJsonObjectWriter ++ jsonWriter[ADTWithType[B]]
+//      macrolizer.show("ansi") {
+        val simpleJsonObjectWriter = SimpleJsonObjectWriter[ADTWithType[B]].addField("clazz") {
+          case _: ADTWithTypeA[B] => "ADTWithTypeA"
+          case _: ADTWithTypeB[B] => "ADTWithTypeB"
+        }
+        simpleJsonObjectWriter ++ jsonWriter[ADTWithType[B]]
+//      }
     }
 
     (ADTWithTypeB[Int](1, ADTWithTypeA[Int](2)): ADTWithType[Int]).asTokenList shouldBe obj(
@@ -100,7 +102,7 @@ class AutoWriterDerivationTest extends AnyFlatSpec with Matchers {
     implicit val simpleClassWriter: JsonObjectWriter[SimpleClass] = JsonWriter.obj[SimpleClass].addField("b")(_.b)
     implicit val justObjectWriter: JsonObjectWriter[JustObject.type] = JsonWriter.obj.addField("type")(_ => "JustObject")
 
-    implicit lazy val sealedWriter: JsonWriter[SimpleSealedType] = jsonWriter[SimpleSealedType]
+    implicit val sealedWriter: JsonWriter[SimpleSealedType] = jsonWriter[SimpleSealedType]
 
     def write(simpleSealedType: SimpleSealedType): List[TokenNode] = simpleSealedType.asTokenList
 
